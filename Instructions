@@ -1,0 +1,22 @@
+Following test case contains two loops.  Your task is to write a pass to fuse them together 
+void init(int *a, int *b, int *c, int n) {
+  for (int i = 0; i < n; i++) {
+    c[i] = i + i;
+    b[i] = i * i;
+  } 
+  for (int i = 0; i < n; i++) {
+    a[i] = b[i] + c[i];
+  } 
+}
+Similar to ScalarEvolution analysis, there is LoopInfo analysis. Using this you can access all loops in a function
+Use below command to emit input IR for your pass.
+clang -S -emit-llvm test.c -Xclang -disable-O0-optnone
+opt -mem2reg -loop-simplify -instcombine -instnamer -indvars test.ll -S -o out.ll
+As a first step you can implement transformation to fuse the loops. 
+Once you are done with it we can see whether it is always legal to fuse and when not to fuse.
+
+
+https://llvm.org/docs/LoopTerminology.html
+ https://llvm.org/doxygen/classllvm_1_1Loop.html
+LLVM Loop Terminology (and Canonical Forms) — LLVM 15.0.0git documentation
+
