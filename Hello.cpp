@@ -79,7 +79,6 @@ namespace {
       auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo(); 
 
-      //errs()<<"\nLoop:  "<< LI. <<"\n";
       /*
       getExitBlock()
       getBlocksVector()
@@ -98,43 +97,75 @@ namespace {
      std::vector<BasicBlock*> b1=lv[0]->getBlocksVector();
      std::vector<BasicBlock*> b0=lv[1]->getBlocksVector();
 
-     b0[0]->moveAfter(b1[0]);
-     b1[0]->getTerminator()->removeFromParent();
-     b1[0]->replacePhiUsesWith(lv[1]->getExitBlock(),b0[0]->getSinglePredecessor());
+     //Instruction &i=b0[0]->front();
+     //Instruction &j=b1[0]->front();
 
-     LI.changeLoopFor(b1[0],lv[1]);
+     //b1[0]->replacePhiUsesWith(j.getOperand(0),i.getOperand(0));
 
-     b1[1]->moveAfter(b0[1]);
+     std::vector<BasicBlock*> pred,p;
+
+     for(auto i: predecessors(b0[0]))
+     {
+      pred.push_back(i);
+     }
+     for(auto i: predecessors(b1[0]))
+     {
+      p.push_back(i);
+     }
+
+
+
+     //for.cond4 phi stuff
+     lv[1]->getExitBlock()->replaceSuccessorsPhiUsesWith(pred[1]);
+     b0[2]->replaceSuccessorsPhiUsesWith(p[0]);
+     Instruction &i=b1[0]->front();
+     Instruction &j=b0[0]->front();
+     i.moveAfter(&j);
+
+     //b1[0]->getTerminator()->removeFromParent();
+
+     //for.end to for.end16
+     BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
+     lv[1]->getExitBlock()->getTerminator()->removeFromParent();
+     lv[0]->getExitBlock()->moveAfter(lv[1]->getExitBlock());
+
+     //for.body to for.body6
+     BranchInst::Create(b1[1],b0[1]->getTerminator());
      b0[1]->getTerminator()->removeFromParent();
+     b1[1]->moveAfter(b0[1]);
+
+     //remove for.body6
+     //b1[0]->removeFromParent();
+     b1[0]->getTerminator()->removeFromParent();
+     b1[0]->removeFromParent();
+    
+     //for.body6 to for.inc
+     BranchInst::Create(b0[2],b1[1]->getTerminator());
      b1[1]->getTerminator()->removeFromParent();
-     b1[1]->replacePhiUsesWith(b1[0],b0[1]);
 
-     LI.changeLoopFor(b1[1],lv[1]);
+     //for.inc to for.inc14
+     BranchInst::Create(b1[2],b0[2]->getTerminator());
+     b0[2]->getTerminator()->removeFromParent();
+     b1[2]->moveAfter(b0[2]);
 
-     Instruction *i=b1[2]->getTerminator();
-     i->removeFromParent();
-     b1[2]->moveBefore(b0[2]);
-     b0[2]->replacePhiUsesWith(b0[1],b1[2]);
-
-     LI.changeLoopFor(b1[2],lv[1]);
-
-     BasicBlock *b=lv[1]->getExitBlock();
-     b->getTerminator()->removeFromParent();
-     BasicBlock *a=lv[0]->getExitBlock();
-     a->moveAfter(b);
-
-     a->replacePhiUsesWith(b1[0],b);
-
-     LI.changeLoopFor(a,lv[1]);
-
-
+     //for.inc14 to for.cond
+     BranchInst::Create(b0[0],b1[2]->getTerminator());
+     b1[2]->getTerminator()->removeFromParent();
 
      
 
+     //for.end to for.end16
+    /* BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
+     lv[1]->getExitBlock()->getTerminator()->removeFromParent();
+     lv[0]->getExitBlock()->moveAfter(lv[1]->getExitBlock());*/
 
-     //F.dump();
+     //errs()<<lv[1]->getExitBlock()<<"\n"<<lv[0]->getExitBlock();
+     
 
-    
+
+
+     F.dump();
+
       return false;
 
     }
@@ -146,26 +177,6 @@ namespace {
       AU.addRequired<ScalarEvolutionWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
     }
-
-    void changeSuccessor(BasicBlock *a,BasicBlock *b)
-    {
-
-    }
-
-    /*BranchInst* getBranchInstruction(BasicBlock *BB)
-    {
-      BasicBlock::iterator i;
-      for(i=BB->begin();i!=BB->end();i++)
-      {
-          errs()<<"\n"<<*i; 
-          if(BranchInst *b=dyn_cast<BranchInst>(i))
-          {          
-            return b;
-          }
-      }
-    }*/
-
-    
 
   };
 }
