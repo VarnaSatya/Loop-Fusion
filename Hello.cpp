@@ -35,6 +35,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include <list>
 #include<vector>
 #include <map>
@@ -75,6 +76,8 @@ namespace {
 
       Module *M=F.getParent();
       ++HelloCounter;
+
+    
       
       auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo(); 
@@ -115,9 +118,11 @@ namespace {
 
 
 
+
      //for.cond4 phi stuff
      lv[1]->getExitBlock()->replaceSuccessorsPhiUsesWith(pred[1]);
      b0[2]->replaceSuccessorsPhiUsesWith(p[0]);
+     //b0[2]->removeSuccessor(b0[0]);
      Instruction &i=b1[0]->front();
      Instruction &j=b0[0]->front();
      i.moveAfter(&j);
@@ -144,22 +149,33 @@ namespace {
      b1[1]->getTerminator()->removeFromParent();
 
      //for.inc to for.inc14
-     BranchInst::Create(b1[2],b0[2]->getTerminator());
-     b0[2]->getTerminator()->removeFromParent();
+     //BranchInst::Create(b1[2],b0[2]->getTerminator());
+     //b0[2]->getTerminator()->removeFromParent();
+     ReplaceInstWithInst(b0[2]->getTerminator(),BranchInst::Create(b1[2]));
      b1[2]->moveAfter(b0[2]);
 
      //for.inc14 to for.cond
      BranchInst::Create(b0[0],b1[2]->getTerminator());
      b1[2]->getTerminator()->removeFromParent();
 
+     LI.changeLoopFor(b1[0],lv[1]);
+     LI.changeLoopFor(b1[1],lv[1]);
+     LI.changeLoopFor(b1[2],lv[1]);
+
      
 
      //for.end to for.end16
-    /* BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
+     /*BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
      lv[1]->getExitBlock()->getTerminator()->removeFromParent();
      lv[0]->getExitBlock()->moveAfter(lv[1]->getExitBlock());*/
 
      //errs()<<lv[1]->getExitBlock()<<"\n"<<lv[0]->getExitBlock();
+
+     for(auto a: predecessors(b0[0]))
+     {
+      if(a)
+        errs()<<"\n"<<*a<<"\n";
+     }
      
 
 
