@@ -36,6 +36,8 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
 #include <list>
 #include<vector>
 #include <map>
@@ -75,12 +77,13 @@ namespace {
     bool runOnFunction(Function &F) override {
 
       Module *M=F.getParent();
-      ++HelloCounter;
-
-    
+      ++HelloCounter;    
       
       auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo(); 
+
+      LLVMContext &context = M->getContext();
+      IRBuilder<> IR(context);
 
       /*
       getExitBlock()
@@ -90,97 +93,63 @@ namespace {
       changeLoopFor(BB,L)
       */
 
-     std::vector<Loop*> lv;     
+      std::vector<Loop*> lv;     
 
-     for(Loop *L: LI)
-     {
+      for(Loop *L: LI)
+      {
         lv.push_back(L);
-     }
+      }
 
-     std::vector<BasicBlock*> b1=lv[0]->getBlocksVector();
-     std::vector<BasicBlock*> b0=lv[1]->getBlocksVector();
+      BasicBlock *h1=lv[1]->getHeader();
+      BasicBlock *l1=lv[1]->getLoopLatch();
+      BasicBlock *b1=lv[1]->getBlocksVector()[1]; //check for function
 
-     //Instruction &i=b0[0]->front();
-     //Instruction &j=b1[0]->front();
+      BasicBlock *e2=lv[0]->getExitBlock();
 
-     //b1[0]->replacePhiUsesWith(j.getOperand(0),i.getOperand(0));
+      BasicBlock *h2=lv[0]->getHeader();
+      BasicBlock *l2=lv[0]->getLoopLatch();
+      BasicBlock *b2=lv[0]->getBlocksVector()[1]; //check for function
 
-     std::vector<BasicBlock*> pred,p;
-
-     for(auto i: predecessors(b0[0]))
-     {
-      pred.push_back(i);
-     }
-     for(auto i: predecessors(b1[0]))
-     {
-      p.push_back(i);
-     }
+      int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
+      int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
 
 
+      errs()<<*SE.getSymbolicMaxBackedgeTakenCount(lv[0])<<"\t"<<*SE.getSymbolicMaxBackedgeTakenCount(lv[1])<<"\n";
+      //errs()<<SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1])<<"\n";
+      errs()<<SE.getSymbolicMaxBackedgeTakenCount(lv[0])<<"\n";
+
+      auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
 
 
-     //for.cond4 phi stuff
-     lv[1]->getExitBlock()->replaceSuccessorsPhiUsesWith(pred[1]);
-     b0[2]->replaceSuccessorsPhiUsesWith(p[0]);
-     //b0[2]->removeSuccessor(b0[0]);
-     Instruction &i=b1[0]->front();
-     Instruction &j=b0[0]->front();
-     i.moveAfter(&j);
+            
 
-     //b1[0]->getTerminator()->removeFromParent();
+      if(x==y && p->isZero())
+      {
+        //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
 
-     //for.end to for.end16
-     BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
-     lv[1]->getExitBlock()->getTerminator()->removeFromParent();
-     lv[0]->getExitBlock()->moveAfter(lv[1]->getExitBlock());
+        lv[0]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[1]->getCanonicalInductionVariable());
 
-     //for.body to for.body6
-     BranchInst::Create(b1[1],b0[1]->getTerminator());
-     b0[1]->getTerminator()->removeFromParent();
-     b1[1]->moveAfter(b0[1]);
+        l1->moveAfter(lv[0]->getBlocksVector()[1]);
 
-     //remove for.body6
-     //b1[0]->removeFromParent();
-     b1[0]->getTerminator()->removeFromParent();
-     b1[0]->removeFromParent();
-    
-     //for.body6 to for.inc
-     BranchInst::Create(b0[2],b1[1]->getTerminator());
-     b1[1]->getTerminator()->removeFromParent();
+        b1->getTerminator()->setSuccessor(0,lv[0]->getBlocksVector()[1]);
+        lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);
 
-     //for.inc to for.inc14
-     //BranchInst::Create(b1[2],b0[2]->getTerminator());
-     //b0[2]->getTerminator()->removeFromParent();
-     ReplaceInstWithInst(b0[2]->getTerminator(),BranchInst::Create(b1[2]));
-     b1[2]->moveAfter(b0[2]);
 
-     //for.inc14 to for.cond
-     BranchInst::Create(b0[0],b1[2]->getTerminator());
-     b1[2]->getTerminator()->removeFromParent();
+        
 
-     LI.changeLoopFor(b1[0],lv[1]);
-     LI.changeLoopFor(b1[1],lv[1]);
-     LI.changeLoopFor(b1[2],lv[1]);
+        //errs()<<*l<<"\n";
+
+        h1->getTerminator()->setSuccessor(1,e2);
+
+        EliminateUnreachableBlocks(F);
+
+        F.dump();
+      }
+
+      
+
 
      
-
-     //for.end to for.end16
-     /*BranchInst::Create(lv[0]->getExitBlock(),lv[1]->getExitBlock()->getTerminator());
-     lv[1]->getExitBlock()->getTerminator()->removeFromParent();
-     lv[0]->getExitBlock()->moveAfter(lv[1]->getExitBlock());*/
-
-     //errs()<<lv[1]->getExitBlock()<<"\n"<<lv[0]->getExitBlock();
-
-     for(auto a: predecessors(b0[0]))
-     {
-      if(a)
-        errs()<<"\n"<<*a<<"\n";
-     }
-     
-
-
-
-     F.dump();
 
       return false;
 
