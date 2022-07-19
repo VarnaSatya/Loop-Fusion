@@ -104,6 +104,7 @@ namespace {
       BasicBlock *l1=lv[1]->getLoopLatch();
       BasicBlock *b1=lv[1]->getBlocksVector()[1]; //check for function
 
+      BasicBlock *e1=lv[1]->getExitBlock();
       BasicBlock *e2=lv[0]->getExitBlock();
 
       BasicBlock *h2=lv[0]->getHeader();
@@ -113,17 +114,10 @@ namespace {
       int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
       int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
 
-
-      errs()<<*SE.getSymbolicMaxBackedgeTakenCount(lv[0])<<"\t"<<*SE.getSymbolicMaxBackedgeTakenCount(lv[1])<<"\n";
-      //errs()<<SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1])<<"\n";
-      errs()<<SE.getSymbolicMaxBackedgeTakenCount(lv[0])<<"\n";
-
       auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
 
 
-            
-
-      if(x==y && p->isZero())
+      if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2))
       {
         //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
 
