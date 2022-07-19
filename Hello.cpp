@@ -117,7 +117,7 @@ namespace {
       auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
 
 
-      if(e1->getSinglePredecessor()!=NULL)
+      if(e1->getSingleSuccessor()!=NULL)
       {
         if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2))
         {
