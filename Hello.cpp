@@ -117,28 +117,30 @@ namespace {
       auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
 
 
-      if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2))
+      if(e1->getSinglePredecessor()!=NULL)
       {
-        //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
+        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2))
+        {
+          //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
 
-        lv[0]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[1]->getCanonicalInductionVariable());
+          lv[0]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[1]->getCanonicalInductionVariable());
 
-        l1->moveAfter(lv[0]->getBlocksVector()[1]);
+          l1->moveAfter(lv[0]->getBlocksVector()[1]);
 
-        b1->getTerminator()->setSuccessor(0,lv[0]->getBlocksVector()[1]);
-        lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);
+          b1->getTerminator()->setSuccessor(0,lv[0]->getBlocksVector()[1]);
+          lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);
 
 
-        
+          
 
-        //errs()<<*l<<"\n";
+          //errs()<<*l<<"\n";
 
-        h1->getTerminator()->setSuccessor(1,e2);
+          h1->getTerminator()->setSuccessor(1,e2);
 
-        EliminateUnreachableBlocks(F);
+          EliminateUnreachableBlocks(F);
 
-        F.dump();
-      }
+          F.dump();
+        }
 
       
 
@@ -147,6 +149,7 @@ namespace {
 
       return false;
 
+    }
     }
 
     // We don't modify the program, so we preserve all analyses.
