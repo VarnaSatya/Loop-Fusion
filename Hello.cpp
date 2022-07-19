@@ -115,13 +115,13 @@ namespace {
       int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
 
       auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
-
-     int a=dyn_cast<ConstantInt>(l1->begin()->getOperand(1))->getZExtValue();
-     int b=dyn_cast<ConstantInt>(l2->begin()->getOperand(1))->getZExtValue();
+    
+      int a=dyn_cast<ConstantInt>(l1->begin()->getOperand(1))->getZExtValue();
+      int b=dyn_cast<ConstantInt>(l2->begin()->getOperand(1))->getZExtValue();
 
       if(e1->getSingleSuccessor()!=NULL)
       {
-        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b)
+        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode())
         {
           //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
 
