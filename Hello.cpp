@@ -111,6 +111,41 @@ namespace {
       BasicBlock *l2=lv[0]->getLoopLatch();
       BasicBlock *b2=lv[0]->getBlocksVector()[1]; //check for function
 
+      std::vector<const SCEVAddRecExpr*> sti;      
+      bool flag=true;
+
+      //bool 	containsAddRecurrence (const SCEV *S)
+
+      for(Instruction &I: *b1)
+      {
+        Value *instruction= &I;
+        if (auto *AI = dyn_cast<StoreInst>(instruction)) 
+        { 
+          auto *s=SE.getSCEV(AI->getPointerOperand());
+          auto *ar = dyn_cast<SCEVAddRecExpr>(s);
+          sti.push_back(ar);
+        }
+      }
+
+      for(Instruction &I: *b2)
+      {
+        Value *instruction= &I;        
+        if (auto *AI = dyn_cast<LoadInst>(instruction)) 
+        { 
+          auto *s=SE.getSCEV(AI->getPointerOperand());
+          auto *exp = dyn_cast<SCEVAddRecExpr>(s);
+          for(auto i: sti)
+          {
+            if(i->getOperand(0)==exp->getOperand(0))
+            {
+              if(SE.getMinusSCEV(i->getOperand(1),exp->getOperand(1))->isNonConstantNegative())
+              {
+                flag=false; //cannot be fused
+              }
+            }
+          }
+        }
+      }
       int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
       int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
 
@@ -121,37 +156,18 @@ namespace {
 
       if(e1->getSingleSuccessor()!=NULL)
       {
-        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode())
+        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode() && flag)
         {
-          //errs()<<*lv[1]->getCanonicalInductionVariable()<<"\n";
-
           lv[0]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[1]->getCanonicalInductionVariable());
-
           l1->moveAfter(lv[0]->getBlocksVector()[1]);
-
           b1->getTerminator()->setSuccessor(0,lv[0]->getBlocksVector()[1]);
-          lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);
-
-
-          
-
-          //errs()<<*l<<"\n";
-
+          lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);       
           h1->getTerminator()->setSuccessor(1,e2);
-
           EliminateUnreachableBlocks(F);
-
           F.dump();
         }
-
-      
-
-
-     
-
-      return false;
-
-    }
+      }        
+      return false;    
     }
 
     // We don't modify the program, so we preserve all analyses.
