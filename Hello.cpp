@@ -84,17 +84,7 @@ namespace {
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo(); 
 
       LLVMContext &context = M->getContext();
-      IRBuilder<> IR(context);
-
-      /*
-      getExitBlock()
-      getBlocksVector()
-      BranchInst::Create(Truebb,Falsebb);
-      BB.getTerminator()
-      changeLoopFor(BB,L)
-      */
-
-     
+      IRBuilder<> IR(context); 
 
       std::vector<Loop*> lv;     
 
@@ -103,92 +93,91 @@ namespace {
         lv.push_back(L);
       }
 
-      BasicBlock *h1=lv[1]->getHeader();
-      BasicBlock *l1=lv[1]->getLoopLatch();
-      BasicBlock *b1=lv[1]->getBlocksVector()[1]; //check for function
+      int size=lv.size()-1;
+      BasicBlock *h1=lv[size]->getHeader();
+      BasicBlock *l1=lv[size]->getLoopLatch();
+      BasicBlock *b1=lv[size]->getBlocksVector()[1]; //check for function
+      BasicBlock *e1=lv[size]->getExitBlock();
 
-      BasicBlock *e1=lv[1]->getExitBlock();
-      BasicBlock *e2=lv[0]->getExitBlock();
-
-      BasicBlock *h2=lv[0]->getHeader();
-      BasicBlock *l2=lv[0]->getLoopLatch();
-      BasicBlock *b2=lv[0]->getBlocksVector()[1]; //check for function
-
-      std::vector<const SCEV*> sti;      
-      bool flag=true;
-
-      //bool 	containsAddRecurrence (const SCEV *S)
-
-      for(Instruction &I: *b1)
+      for(int j=0;j<size;j++)
       {
-        Value *instruction= &I;
-        if (auto *AI = dyn_cast<StoreInst>(instruction)) 
-        { 
-          auto *s=SE.getSCEV(AI->getPointerOperand());
-          auto *ar = dyn_cast<SCEVAddRecExpr>(s);
-          sti.push_back(s);
-          //errs()<<*s<<"\n";
+        BasicBlock *e2=lv[j]->getExitBlock();
+        BasicBlock *h2=lv[j]->getHeader();
+        BasicBlock *l2=lv[j]->getLoopLatch();
+        BasicBlock *b2=lv[j]->getBlocksVector()[1]; //check for function
+
+        std::vector<const SCEV*> sti;      
+        bool flag=true;
+
+        //bool 	containsAddRecurrence (const SCEV *S)
+
+        for(Instruction &I: *b1)
+        {
+          Value *instruction= &I;
+          if (auto *AI = dyn_cast<StoreInst>(instruction)) 
+          { 
+            auto *s=SE.getSCEV(AI->getPointerOperand());
+            auto *ar = dyn_cast<SCEVAddRecExpr>(s);
+            sti.push_back(s);
+          }
         }
-      }
-      errs()<<"\n";
 
-      for(Instruction &I: *b2)
-      {
-        Value *instruction= &I;        
-        if (auto *AI = dyn_cast<LoadInst>(instruction)) 
-        { 
-          auto *s=SE.getSCEV(AI->getPointerOperand());
-          auto *ex = dyn_cast<SCEVAddRecExpr>(s);
-          //errs()<<*s<<"\n";
-          
-          for(auto i: sti)
-          {
-            auto *a=dyn_cast<SCEVAddRecExpr>(i);
-            if(true)
+        for(Instruction &I: *b2)
+        {
+          Value *instruction= &I;        
+          if (auto *AI = dyn_cast<LoadInst>(instruction)) 
+          { 
+            auto *s=SE.getSCEV(AI->getPointerOperand());
+            auto *ex = dyn_cast<SCEVAddRecExpr>(s);
+            //errs()<<*s<<"\n";
+            
+            for(auto i: sti)
             {
-              SmallVector<const SCEV *, 2> Operands;
-              Operands.push_back(ex->getOperand(0));
-              Operands.push_back(ex->getOperand(1));
-              auto *changed=SE.getAddRecExpr(Operands, lv[1], ex->getNoWrapFlags());
-              //errs()<<*changed<<"\t"<<*a<<"\n";
-              //errs()<<*SE.getMinusSCEV(changed,a)<<"\n";
-              if(SE.getCouldNotCompute()!=SE.getMinusSCEV(changed,a))
+              auto *a=dyn_cast<SCEVAddRecExpr>(i);
+              if(true)
               {
-                if(SE.isKnownNegative(SE.getMinusSCEV(changed,a)))
+                SmallVector<const SCEV *, 2> Operands;
+                Operands.push_back(ex->getOperand(0));
+                Operands.push_back(ex->getOperand(1));
+                auto *changed=SE.getAddRecExpr(Operands, lv[size], ex->getNoWrapFlags());
+                if(SE.getCouldNotCompute()!=SE.getMinusSCEV(changed,a))
                 {
-                  flag=false; //cannot be fused
-                  errs()<<"Cannot be fused\n";
-                  return false;
-                }
-                else
-                {
-                  errs()<<"Can be done\n";
+                  if(SE.isKnownNegative(SE.getMinusSCEV(changed,a)))
+                  {
+                    flag=false; //cannot be fused
+                    errs()<<"Cannot be fused\n";
+                    return false;
+                  }
+                  else
+                  {
+                    errs()<<"Can be done\n";
+                  }
                 }
               }
             }
+            
           }
-          
         }
-      }
-      int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
-      int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
+        int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
+        int y= dyn_cast<ConstantInt>(h2->begin()->getOperand(1))->getZExtValue();
 
-      auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[0]),SE.getSymbolicMaxBackedgeTakenCount(lv[1]));
-    
-      int a=dyn_cast<ConstantInt>(l1->begin()->getOperand(1))->getZExtValue();
-      int b=dyn_cast<ConstantInt>(l2->begin()->getOperand(1))->getZExtValue();
+        auto *p=SE.getMinusSCEV(SE.getSymbolicMaxBackedgeTakenCount(lv[j]),SE.getSymbolicMaxBackedgeTakenCount(lv[size]));
+      
+        int a=dyn_cast<ConstantInt>(l1->begin()->getOperand(1))->getZExtValue();
+        int b=dyn_cast<ConstantInt>(l2->begin()->getOperand(1))->getZExtValue();
 
-      if(e1->getSingleSuccessor()!=NULL)
-      {
-        if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode() && flag)
+        if(e1->getSingleSuccessor()!=NULL)
         {
-          lv[0]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[1]->getCanonicalInductionVariable());
-          l1->moveAfter(lv[0]->getBlocksVector()[1]);
-          b1->getTerminator()->setSuccessor(0,lv[0]->getBlocksVector()[1]);
-          lv[0]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);       
-          h1->getTerminator()->setSuccessor(1,e2);
-          EliminateUnreachableBlocks(F);
-          F.dump();
+          if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode() && flag)
+          {
+            lv[j]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[size]->getCanonicalInductionVariable());
+            l1->moveAfter(lv[j]->getBlocksVector()[1]);
+            b1->getTerminator()->setSuccessor(0,lv[j]->getBlocksVector()[1]);
+            lv[j]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);       
+            h1->getTerminator()->setSuccessor(1,e2);
+            EliminateUnreachableBlocks(F);
+            F.dump();
+          }
         }
       }      
       return false;    
