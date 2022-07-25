@@ -99,12 +99,17 @@ namespace {
       BasicBlock *b1=lv[size]->getBlocksVector()[1]; //check for function
       BasicBlock *e1=lv[size]->getExitBlock();
 
-      for(int j=0;j<size;j++)
+      //errs()<<size<<"\n";
+
+      for(int j=size-1;j>=0;j--)
       {
+        //errs()<<"j "<<j<<"\n";
         BasicBlock *e2=lv[j]->getExitBlock();
         BasicBlock *h2=lv[j]->getHeader();
         BasicBlock *l2=lv[j]->getLoopLatch();
         BasicBlock *b2=lv[j]->getBlocksVector()[1]; //check for function
+
+        //errs()<<*l2<<"\n";
 
         std::vector<const SCEV*> sti;      
         bool flag=true;
@@ -168,6 +173,7 @@ namespace {
 
         if(e1->getSingleSuccessor()!=NULL)
         {
+          //e1->getSingleSuccessor()==h2
           if(x==y && p->isZero() && (e1->getSingleSuccessor()==h2) && a==b && l1->begin()->getOpcode()==l2->begin()->getOpcode() && flag)
           {
             lv[j]->getCanonicalInductionVariable()->replaceAllUsesWith(lv[size]->getCanonicalInductionVariable());
@@ -175,11 +181,23 @@ namespace {
             b1->getTerminator()->setSuccessor(0,lv[j]->getBlocksVector()[1]);
             lv[j]->getBlocksVector()[1]->getTerminator()->setSuccessor(0,l1);       
             h1->getTerminator()->setSuccessor(1,e2);
+            e1=e2;
+            b1=b2;
             EliminateUnreachableBlocks(F);
-            F.dump();
+          }
+          else
+          {
+            errs()<<"NO\n";
+            errs()<<x<<"\t"<<y<<"\n";
+            errs()<<(e1->getSingleSuccessor()==h2)<<"\n";
+            errs()<<a<<"\t"<<b<<"\n";
+            errs()<<(l1->begin()->getOpcode()==l2->begin()->getOpcode())<<"\n";
+            errs()<<flag<<"\n";
           }
         }
+        errs()<<"\n";
       }      
+      F.dump();
       return false;    
     }
 
