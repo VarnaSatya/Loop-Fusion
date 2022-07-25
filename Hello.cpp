@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/InstrTypes.h"
 #include <list>
 #include<vector>
@@ -93,6 +94,8 @@ namespace {
       changeLoopFor(BB,L)
       */
 
+     
+
       std::vector<Loop*> lv;     
 
       for(Loop *L: LI)
@@ -111,7 +114,7 @@ namespace {
       BasicBlock *l2=lv[0]->getLoopLatch();
       BasicBlock *b2=lv[0]->getBlocksVector()[1]; //check for function
 
-      std::vector<const SCEVAddRecExpr*> sti;      
+      std::vector<const SCEV*> sti;      
       bool flag=true;
 
       //bool 	containsAddRecurrence (const SCEV *S)
@@ -123,9 +126,11 @@ namespace {
         { 
           auto *s=SE.getSCEV(AI->getPointerOperand());
           auto *ar = dyn_cast<SCEVAddRecExpr>(s);
-          sti.push_back(ar);
+          sti.push_back(s);
+          //errs()<<*s<<"\n";
         }
       }
+      errs()<<"\n";
 
       for(Instruction &I: *b2)
       {
@@ -133,17 +138,36 @@ namespace {
         if (auto *AI = dyn_cast<LoadInst>(instruction)) 
         { 
           auto *s=SE.getSCEV(AI->getPointerOperand());
-          auto *exp = dyn_cast<SCEVAddRecExpr>(s);
+          auto *ex = dyn_cast<SCEVAddRecExpr>(s);
+          //errs()<<*s<<"\n";
+          
           for(auto i: sti)
           {
-            if(i->getOperand(0)==exp->getOperand(0))
+            auto *a=dyn_cast<SCEVAddRecExpr>(i);
+            if(true)
             {
-              if(SE.getMinusSCEV(i->getOperand(1),exp->getOperand(1))->isNonConstantNegative())
+              SmallVector<const SCEV *, 2> Operands;
+              Operands.push_back(ex->getOperand(0));
+              Operands.push_back(ex->getOperand(1));
+              auto *changed=SE.getAddRecExpr(Operands, lv[1], ex->getNoWrapFlags());
+              //errs()<<*changed<<"\t"<<*a<<"\n";
+              //errs()<<*SE.getMinusSCEV(changed,a)<<"\n";
+              if(SE.getCouldNotCompute()!=SE.getMinusSCEV(changed,a))
               {
-                flag=false; //cannot be fused
+                if(SE.isKnownNegative(SE.getMinusSCEV(changed,a)))
+                {
+                  flag=false; //cannot be fused
+                  errs()<<"Cannot be fused\n";
+                  return false;
+                }
+                else
+                {
+                  errs()<<"Can be done\n";
+                }
               }
             }
           }
+          
         }
       }
       int x= dyn_cast<ConstantInt>(h1->begin()->getOperand(1))->getZExtValue();
@@ -166,7 +190,7 @@ namespace {
           EliminateUnreachableBlocks(F);
           F.dump();
         }
-      }        
+      }      
       return false;    
     }
 
