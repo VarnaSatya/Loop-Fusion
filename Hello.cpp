@@ -193,9 +193,15 @@ namespace {
             errs()<<a<<"\t"<<b<<"\n";
             errs()<<(l1->begin()->getOpcode()==l2->begin()->getOpcode())<<"\n";
             errs()<<flag<<"\n";
+            errs()<<"Cannot be fused\n";
+            break;
           }
         }
-        errs()<<"\n";
+        else
+        {
+          errs()<<"Cannot be fused\n";
+          break;
+        }
       }      
       F.dump();
       return false;    
